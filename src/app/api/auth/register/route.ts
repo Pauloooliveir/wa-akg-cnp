@@ -10,6 +10,10 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: Request) {
+    // CNP: cadastro público sempre fechado; o admin é criado no deploy (ADMIN_EMAIL/ADMIN_PASSWORD).
+    if (process.env.ALLOW_REGISTRATION !== "true") {
+        return NextResponse.json({ error: "Registration is disabled" }, { status: 403 });
+    }
     try {
         const body = await req.json();
         const { email, password, name } = registerSchema.parse(body);

@@ -5,7 +5,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 # Provide fallback build-time environment variables so next build succeeds without host .env
-ENV DATABASE_URL="mysql://build_user:build_pass@localhost:3306/wa_akg"
+ENV DATABASE_URL="postgresql://build_user:build_pass@localhost:5432/wa_akg"
 ENV AUTH_SECRET="build_secret_must_be_at_least_32_characters_long_for_nextjs"
 ENV NEXTAUTH_SECRET="build_secret_must_be_at_least_32_characters_long_for_nextjs"
 
@@ -20,7 +20,7 @@ RUN npx prisma generate && npm run build
 
 # Strip devDeps from node_modules after build
 # tsx needed at runtime, kept explicitly
-RUN npm prune --omit=dev && npm install --no-save tsx typescript
+RUN npm prune --omit=dev && npm install --no-save --ignore-scripts tsx@4.21.0 typescript@5.9.3
 
 # Production image
 FROM node:26-alpine AS runner

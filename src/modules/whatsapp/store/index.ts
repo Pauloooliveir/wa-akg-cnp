@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { WASocket, WAMessage, Contact } from "@whiskeysockets/baileys";
 import { normalizeMessageContent } from "@whiskeysockets/baileys";
 import { onMessageReceived, onMessageSent, dispatchWebhook, downloadAndSaveMedia } from "@/lib/webhook";
-import { handleBotCommand, setSessionStartTime } from "../bot/command-handler";
+import { setSessionStartTime } from "../bot/command-handler";
 import { resolveToPhoneJid, isLidJid, normalizeJid } from "@/lib/jid-utils";
 
 import { Server } from "socket.io";
@@ -68,11 +68,7 @@ export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server |
                     processedMessages.push(savedMessage);
                 }
 
-                // Execute Bot Commands (Only for Notify / New Messages)
-                if (type === 'notify' && savedMessage) {
-                    // Run in background, don't await strictly to not block saving
-                    handleBotCommand(sock, sessionId, msg).catch(e => logger.error("Bot", "Bot Handler Error", e));
-                }
+                // CNP: comandos de bot (#sticker, #ping...) desligados
             } catch (error) {
                 logger.error("Store", "Error saving message", error);
             }
@@ -527,7 +523,8 @@ async function processAndSaveMessage(
     // Download Media First (to save URL to DB)
     let fileUrl: string | null = null;
     try {
-        fileUrl = await downloadAndSaveMedia(msg, sessionId);
+        // CNP: não guardar mídia dos grupos, a menos que STORE_MEDIA=true
+        if (process.env.STORE_MEDIA === "true") fileUrl = await downloadAndSaveMedia(msg, sessionId);
     } catch (e) {
         logger.error("Store", "Error downloading media in store", e);
     }

@@ -12,8 +12,6 @@ import pino from "pino";
 import { bindSessionStore } from "./store";
 import { syncGroups } from "./store/groups";
 import { bindContactSync } from "./store/contacts";
-import { bindAutoReply } from "./store/autoreply";
-import { bindPpGuard } from "./store/ppguard";
 import { antispam } from "./antispam";
 import { logger } from "@/lib/logger";
 import { isInteractiveContent, handleInteractiveMessageDispatch } from "./interactive";
@@ -68,7 +66,7 @@ export class WhatsAppInstance {
             },
             browser: ["Ubuntu", "Chrome", "20.0.04"],
             markOnlineOnConnect: botConfig?.alwaysOnline ?? true,
-            syncFullHistory: true,
+            syncFullHistory: false, // CNP: não baixar o histórico de todos os chats
         });
 
         // Attach Lekzo Baileys compatible helper methods
@@ -233,9 +231,7 @@ export class WhatsAppInstance {
                 } catch (e) {
                     logger.error("Instance", "Group sync failed:", e);
                 }
-
-                bindAutoReply(this.socket as WASocket, this.sessionId);
-                bindPpGuard(this.socket as WASocket, this.sessionId);
+                // CNP: auto-reply e ppguard desligados
 
                 await prisma.session.update({
                     where: { sessionId: this.sessionId },

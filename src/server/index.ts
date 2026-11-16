@@ -110,45 +110,6 @@ app.prepare().then(async () => {
   server.listen(port, () => {
     logger.banner(pkg.name.toUpperCase(), pkg.version, port);
 
-    // --- WA-AKG Monitor Heartbeat ---
-    // Sends a ping every 30 seconds to the monitoring server
-    // Telemetry opt-out is supported via ENABLE_TELEMETRY="false" or DISABLE_TELEMETRY="true"
-    const isTelemetryEnabled = process.env.ENABLE_TELEMETRY !== "false" && process.env.DISABLE_TELEMETRY !== "true";
-
-    if (isTelemetryEnabled) {
-      const MONITOR_URL = "https://api-wa-akg.aikeigroup.net/api/ping";
-      const APP_NAME = process.env.APP_NAME || "WA-AKG";
-      const APP_VERSION = `v${pkg.version}`;
-
-      const sendHeartbeat = async () => {
-        try {
-          await fetch(MONITOR_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              appUrl: APP_VERSION,
-              appVersion: pkg.version,
-              appName: APP_NAME,
-              isBackend: true,
-              systemInfo: {
-                platform: process.platform,
-                nodeVersion: process.version,
-                memoryUsage: Math.round(process.memoryUsage().rss / 1024 / 1024) + "MB"
-              }
-            }),
-          });
-        } catch {
-          // Silently fail to not disturb the main application
-        }
-      };
-
-      // Initial ping
-      sendHeartbeat();
-      // Interval ping
-      setInterval(sendHeartbeat, 30000);
-    } else {
-      logger.info("Server", "Telemetry heartbeat is disabled via environment configuration.");
-    }
-    // --------------------------------
+    // CNP: telemetria do autor removida (nenhum dado sai deste servidor sem pedirmos).
   });
 });
