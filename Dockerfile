@@ -9,18 +9,18 @@ ENV DATABASE_URL="postgresql://build_user:build_pass@localhost:5432/wa_akg"
 ENV AUTH_SECRET="build_secret_must_be_at_least_32_characters_long_for_nextjs"
 ENV NEXTAUTH_SECRET="build_secret_must_be_at_least_32_characters_long_for_nextjs"
 
+# NODE_ENV=production faria o npm ci pular as devDependencies (prisma, typescript...): --include=dev
 # Dependency layer — cache-friendly: only rerun when package*.json changes
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci --legacy-peer-deps && npm cache clean --force
+RUN npm ci --legacy-peer-deps --include=dev && npm cache clean --force
 
 # Source & build
 COPY . .
-RUN npx prisma generate && npm run build
+RUN npx --no-install prisma generate && npm run build
 
-# Strip devDeps from node_modules after build
-# tsx needed at runtime, kept explicitly
-RUN npm prune --omit=dev && npm install --no-save --ignore-scripts tsx@4.21.0 typescript@5.9.3
+# Sem "npm prune": tsx (roda o servidor) e prisma (db push no boot) são devDependencies, e com
+# NODE_ENV=production o reinstall depois do prune os pulava em silêncio. As versões vêm do lockfile.
 
 # Production image
 FROM node:26-alpine AS runner
@@ -47,4 +47,4 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma db push && (if [ -n \"$ADMIN_EMAIL\" ] && [ -n \"$ADMIN_PASSWORD\" ]; then node scripts/setup-admin.js \"$ADMIN_EMAIL\" \"$ADMIN_PASSWORD\"; fi) && node node_modules/tsx/dist/cli.mjs src/server/index.ts"]
+CMD ["sh", "-c", "npx --no-install prisma db push && (if [ -n \"$ADMIN_EMAIL\" ] && [ -n \"$ADMIN_PASSWORD\" ]; then node scripts/setup-admin.js \"$ADMIN_EMAIL\" \"$ADMIN_PASSWORD\"; fi) && node node_modules/tsx/dist/cli.mjs src/server/index.ts"]

@@ -13,7 +13,10 @@ postando texto, imagem e link nos grupos do evento, chamado só pelo painel (ser
 - **Cadastro público sempre fechado** (403), a menos que `ALLOW_REGISTRATION=true`.
 - **Login com trava:** 5 senhas erradas no mesmo e-mail bloqueiam por 15 minutos.
 - **Postgres** no lugar do MySQL (schema e Dockerfile).
-- **Prévia de link:** `link-preview-js@3.2.0` adicionado; `tsx`/`typescript` fixados no Dockerfile.
+- **Prévia de link:** `link-preview-js@3.2.0` adicionado.
+- **Dockerfile corrigido:** o original nunca funcionava em produção (com `NODE_ENV=production` o
+  `npm ci` e o reinstall pulavam `prisma`/`tsx`, e o `npx` baixava um Prisma 8 rc sem versão fixa).
+  Agora instala as devDependencies do lockfile, não faz prune e usa `npx --no-install`.
 - Removidos arquivos de teste, logs e mídias do autor.
 
 ## Variáveis no Railway
