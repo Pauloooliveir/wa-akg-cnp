@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { upsertGroup } from "./groups";
 import type { WASocket, WAMessage, Contact } from "@whiskeysockets/baileys";
 import { normalizeMessageContent } from "@whiskeysockets/baileys";
 import { onMessageReceived, onMessageSent, dispatchWebhook, downloadAndSaveMedia } from "@/lib/webhook";
@@ -234,6 +235,18 @@ export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server |
         }
     });
 
+    // CNP: grupo novo (o chip foi adicionado ou criou o grupo) entra no banco na hora
+    sock.ev.on('groups.upsert', async (novos) => {
+        if (!dbSessionId) return;
+        for (const g of novos) {
+            try {
+                await upsertGroup(dbSessionId, g);
+            } catch (e) {
+                logger.error("Store", "Error in groups.upsert handling", e);
+            }
+        }
+    });
+
     // Handle Group Participants Update
     sock.ev.on('group-participants.update', async (update) => {
         if (!dbSessionId || !update.id) return;
@@ -250,11 +263,20 @@ export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server |
             
             // To properly resync the group participants in DB, it's safer to re-fetch the entire group metadata
             // But we don't await strictly to not block the socket
+            // CNP: se o próprio chip saiu ou foi removido, apaga o grupo; senão grava
+            // (upsert), o que também registra um grupo em que o chip acabou de entrar.
+            const eu = [sock.user?.id, (sock.user as any)?.lid]
+                .filter(Boolean)
+                .map((j: string) => j.split(":")[0].split("@")[0]);
+            const ids = (update.participants as any[]).map((p) =>
+                String(typeof p === "string" ? p : p?.id ?? "").split(":")[0].split("@")[0]
+            );
+            if (update.action === "remove" && ids.some((i) => eu.includes(i))) {
+                await prisma.group.deleteMany({ where: { sessionId: dbSessionId, jid: update.id } });
+                return;
+            }
             sock.groupMetadata(update.id).then(async (g) => {
-                await prisma.group.updateMany({
-                    where: { sessionId: dbSessionId as string, jid: update.id as string },
-                    data: { participants: g.participants as any }
-                });
+                await upsertGroup(dbSessionId as string, g);
             }).catch(e => {
                  logger.debug("Store", "Failed to refresh group participants metadata", e);
             });

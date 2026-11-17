@@ -18,6 +18,9 @@ postando texto, imagem e link nos grupos do evento, chamado só pelo painel (ser
   `npm ci` e o reinstall pulavam `prisma`/`tsx`, e o `npx` baixava um Prisma 8 rc sem versão fixa).
   Agora instala as devDependencies do lockfile, não faz prune e usa `npx --no-install`.
 - Removidos arquivos de teste, logs e mídias do autor.
+- **Grupos sempre atualizados:** grupo em que o chip entra depois de conectado é gravado na hora
+  (`groups.upsert` e `group-participants.update`); grupos de que o chip saiu são apagados; e
+  `GET /api/groups/{id}?refresh=1` busca a lista no WhatsApp antes de responder.
 
 ## Variáveis no Railway
 
