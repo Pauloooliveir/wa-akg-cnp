@@ -11,8 +11,26 @@ export const normalizeBroadcastJid = sanitizePhoneToJid;
 const broadcastBodySchema = z.object({
     recipients: z.array(z.string()),
     message: z.string().min(1),
-    delay: z.number().optional()
+    delay: z.number().min(500).max(300_000).optional(),
+    // CNP: envio em blocos — manda por `pauseAfterMinutes` e para por `pauseMinutes` (os dois ou nenhum)
+    pauseAfterMinutes: z.number().int().min(1).max(1440).optional(),
+    pauseMinutes: z.number().int().min(1).max(1440).optional()
+}).refine((b) => (b.pauseAfterMinutes === undefined) === (b.pauseMinutes === undefined), {
+    message: "pauseAfterMinutes e pauseMinutes vão juntos",
+    path: ["pauseMinutes"]
 });
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Socket atual da sessão; se caiu, espera reconectar (até 2 min) em vez de falhar o resto da lista. */
+async function socketFor(sessionId: string) {
+    for (let i = 0; i < 24; i++) {
+        const inst = waManager.getInstance(sessionId);
+        if (inst?.socket && inst.status === "CONNECTED") return inst.socket;
+        await sleep(5000);
+    }
+    throw new Error("Session not connected");
+}
 
 export async function POST(
     request: NextRequest,
@@ -32,7 +50,7 @@ export async function POST(
             return NextResponse.json({ error: parseResult.error.flatten() }, { status: 400 });
         }
 
-        const { recipients, message, delay } = parseResult.data;
+        const { recipients, message, delay, pauseAfterMinutes, pauseMinutes } = parseResult.data;
 
         // Sanitize & normalize recipients (strip '+', whitespace, non-digits, ensure valid WhatsApp JID format)
         const normalizedRecipients = Array.from(
@@ -63,6 +81,8 @@ export async function POST(
                 message,
                 total: normalizedRecipients.length,
                 delay: delay || 2000,
+                pauseAfterMinutes: pauseAfterMinutes ?? null,
+                pauseMinutes: pauseMinutes ?? null,
                 status: "running",
                 recipients: {
                     create: normalizedRecipients.map(jid => ({
@@ -97,11 +117,16 @@ export async function POST(
             let sent = 0;
             let failed = 0;
             const errors: { jid: string; error: string }[] = [];
+            const blockMs = pauseAfterMinutes ? pauseAfterMinutes * 60_000 : 0;
+            const pauseMs = pauseMinutes ? pauseMinutes * 60_000 : 0;
+            let blockStart = Date.now();
 
             for (let i = 0; i < normalizedRecipients.length; i++) {
                 const jid = normalizedRecipients[i];
                 try {
-                    await instance.socket!.sendMessage(jid, messageContent);
+                    // socket buscado a cada envio: com pausas a transmissão dura horas e a conexão pode ter sido refeita
+                    const sock = await socketFor(sessionId);
+                    await sock.sendMessage(jid, messageContent);
                     sent++;
 
                     // Update recipient status in DB
@@ -142,8 +167,37 @@ export async function POST(
                     });
                 }
 
-                // Delay between sends
-                if (i < normalizedRecipients.length - 1) {
+                // CNP: fim do bloco → pausa longa (no lugar do intervalo normal)
+                if (blockMs && i < normalizedRecipients.length - 1 && Date.now() - blockStart >= blockMs) {
+                    const resumeAt = new Date(Date.now() + pauseMs);
+                    await prisma.broadcastLog.update({ where: { id: broadcastId }, data: { status: "paused" } });
+                    if (io) {
+                        io.to(sessionId).emit("broadcast.progress", {
+                            broadcastId,
+                            status: "paused",
+                            total: normalizedRecipients.length,
+                            sent,
+                            failed,
+                            current: null,
+                            progress,
+                            resumeAt: resumeAt.toISOString()
+                        });
+                    }
+                    await sleep(pauseMs);
+                    await prisma.broadcastLog.update({ where: { id: broadcastId }, data: { status: "running" } });
+                    if (io) {
+                        io.to(sessionId).emit("broadcast.progress", {
+                            broadcastId,
+                            status: "running",
+                            total: normalizedRecipients.length,
+                            sent,
+                            failed,
+                            current: null,
+                            progress
+                        });
+                    }
+                    blockStart = Date.now();
+                } else if (i < normalizedRecipients.length - 1) {
                     const baseDelay = delay || 2000;
                     const randomDelay = baseDelay + Math.floor(Math.random() * (baseDelay * 0.5));
                     await new Promise(r => setTimeout(r, randomDelay));

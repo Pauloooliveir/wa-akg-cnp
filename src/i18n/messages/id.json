@@ -383,7 +383,15 @@
     "errorSending": "Terjadi kesalahan mengirim broadcast",
     "historyPermanent": "Riwayat broadcast tersimpan permanen.",
     "noHistoryShort": "Belum ada broadcast.",
-    "delayAntarPesan": "Delay antar pesan (+ variasi acak)."
+    "delayAntarPesan": "Delay antar pesan (+ variasi acak).",
+    "pauseToggle": "Jeda di antara blok pengiriman",
+    "pauseAfterLabel": "Kirim selama (menit)",
+    "pauseForLabel": "Jeda selama (menit)",
+    "pauseHint": "Mengirim {after} menit, jeda {pause} menit, lalu lanjut sampai daftar selesai.",
+    "pauseInvalid": "Gunakan nilai 1 sampai 1440 menit.",
+    "estimate": "Perkiraan waktu: ~{duration}",
+    "broadcastPaused": "Siaran dijeda",
+    "pausedUntil": "Dijeda — lanjut pukul {time}"
   },
   "interactive": {
     "title": "Penguji Interaktif",

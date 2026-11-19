@@ -383,7 +383,15 @@
     "errorSending": "Error sending broadcast",
     "historyPermanent": "History of sent broadcasts, stored permanently.",
     "noHistoryShort": "No broadcasts yet.",
-    "delayAntarPesan": "Delay between messages (+ random jitter)."
+    "delayAntarPesan": "Delay between messages (+ random jitter).",
+    "pauseToggle": "Pause between sending blocks",
+    "pauseAfterLabel": "Send for (minutes)",
+    "pauseForLabel": "Pause for (minutes)",
+    "pauseHint": "Sends for {after} min, pauses {pause} min and continues until the list ends.",
+    "pauseInvalid": "Use values between 1 and 1440 minutes.",
+    "estimate": "Estimated time: ~{duration}",
+    "broadcastPaused": "Broadcast paused",
+    "pausedUntil": "Paused — resumes at {time}"
   },
   "interactive": {
     "title": "Interactive Tester",

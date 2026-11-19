@@ -8,7 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
-import { RefreshCw, Send, CheckCircle2, XCircle, Radio, Clock, AlertTriangle, History, Eye, Calendar } from "lucide-react";
+import { RefreshCw, Send, CheckCircle2, XCircle, Radio, Clock, AlertTriangle, History, Eye, Calendar, PauseCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useSession } from "@/components/dashboard/session-provider";
 import { SessionGuard } from "@/components/dashboard/session-guard";
@@ -17,7 +19,9 @@ import { useTranslations } from "next-intl";
 
 interface BroadcastProgress {
     broadcastId: string;
-    status: "running" | "completed";
+    status: "running" | "paused" | "completed";
+    /** CNP: quando está em pausa entre blocos, horário em que volta a enviar */
+    resumeAt?: string;
     total: number;
     sent: number;
     failed: number;
@@ -51,6 +55,25 @@ interface BroadcastRecipient {
     sentAt: string | null;
 }
 
+/**
+ * CNP: estimativa do tempo total. O servidor sorteia cada intervalo entre 1x e 1,5x o valor
+ * escolhido (média 1,25x); uma pausa entra a cada bloco completo, se ainda houver gente na fila.
+ */
+function estimateMs(count: number, delayMs: number, blockMin: number, pauseMin: number) {
+    const sending = Math.max(count - 1, 0) * delayMs * 1.25;
+    if (!blockMin || !pauseMin) return sending;
+    const blockMs = blockMin * 60_000;
+    const pauses = Math.max(Math.ceil(sending / blockMs) - 1, 0);
+    return sending + pauses * pauseMin * 60_000;
+}
+
+function formatDuration(ms: number) {
+    const min = Math.max(1, Math.round(ms / 60_000));
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return h ? `${h}h${m ? ` ${String(m).padStart(2, "0")}min` : ""}` : `${m} min`;
+}
+
 export default function BroadcastPage() {
     const t = useTranslations("broadcast");
     const tCommon = useTranslations("common");
@@ -58,6 +81,13 @@ export default function BroadcastPage() {
     const [contacts, setContacts] = useState("");
     const [message, setMessage] = useState("");
     const [delay, setDelay] = useState([2000]);
+    // CNP: envio em blocos (manda por X min, pausa Y min)
+    const [usePause, setUsePause] = useState(false);
+    const [pauseAfter, setPauseAfter] = useState("120");
+    const [pauseFor, setPauseFor] = useState("60");
+    const pauseAfterN = Math.round(Number(pauseAfter));
+    const pauseForN = Math.round(Number(pauseFor));
+    const pauseValid = !usePause || (pauseAfterN >= 1 && pauseAfterN <= 1440 && pauseForN >= 1 && pauseForN <= 1440);
     const [loading, setLoading] = useState(false);
     const [broadcastProgress, setBroadcastProgress] = useState<BroadcastProgress | null>(null);
     const [activeTab, setActiveTab] = useState<"new" | "history">("new");
@@ -183,7 +213,8 @@ export default function BroadcastPage() {
                 body: JSON.stringify({
                     recipients,
                     message,
-                    delay: delay[0]
+                    delay: delay[0],
+                    ...(usePause ? { pauseAfterMinutes: pauseAfterN, pauseMinutes: pauseForN } : {})
                 })
             });
 
@@ -293,7 +324,7 @@ export default function BroadcastPage() {
                                             <Slider
                                                 defaultValue={[2000]}
                                                 min={1000}
-                                                max={15000}
+                                                max={60000}
                                                 step={500}
                                                 value={delay}
                                                 onValueChange={setDelay}
@@ -302,10 +333,43 @@ export default function BroadcastPage() {
                                             <p className="text-xs text-muted-foreground">{t("delayAntarPesan")}</p>
                                         </div>
 
+                                        <div className="space-y-3 rounded-lg border p-3">
+                                            <label className="flex items-center justify-between gap-3 cursor-pointer">
+                                                <span className="text-sm font-medium">{t("pauseToggle")}</span>
+                                                <Switch checked={usePause} onCheckedChange={setUsePause} disabled={loading} />
+                                            </label>
+                                            {usePause && (
+                                                <>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <Label htmlFor="pause-after" className="text-xs">{t("pauseAfterLabel")}</Label>
+                                                            <Input id="pause-after" type="number" inputMode="numeric" min={1} max={1440}
+                                                                value={pauseAfter} onChange={(e) => setPauseAfter(e.target.value)} disabled={loading} />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <Label htmlFor="pause-for" className="text-xs">{t("pauseForLabel")}</Label>
+                                                            <Input id="pause-for" type="number" inputMode="numeric" min={1} max={1440}
+                                                                value={pauseFor} onChange={(e) => setPauseFor(e.target.value)} disabled={loading} />
+                                                        </div>
+                                                    </div>
+                                                    <p className={`text-xs ${pauseValid ? "text-muted-foreground" : "text-red-500"}`}>
+                                                        {pauseValid
+                                                            ? t("pauseHint", { after: pauseAfterN, pause: pauseForN })
+                                                            : t("pauseInvalid")}
+                                                    </p>
+                                                </>
+                                            )}
+                                            {recipientCount > 0 && pauseValid && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    {t("estimate", { duration: formatDuration(estimateMs(recipientCount, delay[0], usePause ? pauseAfterN : 0, usePause ? pauseForN : 0)) })}
+                                                </p>
+                                            )}
+                                        </div>
+
                                         <Button
                                             className="w-full"
                                             onClick={handleSend}
-                                            disabled={loading || !sessionId || recipientCount === 0 || !message.trim()}
+                                            disabled={loading || !sessionId || recipientCount === 0 || !message.trim() || !pauseValid}
                                         >
                                             {loading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                             {loading ? t("broadcasting") : t("startButton")}
@@ -320,12 +384,16 @@ export default function BroadcastPage() {
                             <Card className={`border-2 transition-colors ${
                                 broadcastProgress.status === "completed"
                                     ? (broadcastProgress.failed === 0 ? "border-green-500/30 bg-green-50/30 dark:bg-green-950/10" : "border-yellow-500/30 bg-yellow-50/30 dark:bg-yellow-950/10")
-                                    : "border-blue-500/30 bg-blue-50/30 dark:bg-blue-950/10"
+                                    : broadcastProgress.status === "paused"
+                                        ? "border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/10"
+                                        : "border-blue-500/30 bg-blue-50/30 dark:bg-blue-950/10"
                             }`}>
                                 <CardHeader className="pb-3">
                                     <CardTitle className="flex items-center gap-2 text-lg">
                                         {broadcastProgress.status === "running" ? (
                                             <><Radio className="h-5 w-5 text-blue-500 animate-pulse" /><span>{t("broadcastInProgress")}</span></>
+                                        ) : broadcastProgress.status === "paused" ? (
+                                            <><PauseCircle className="h-5 w-5 text-amber-500" /><span>{t("broadcastPaused")}</span></>
                                         ) : broadcastProgress.failed === 0 ? (
                                             <><CheckCircle2 className="h-5 w-5 text-green-500" /><span>{t("broadcastCompleted")}</span></>
                                         ) : (
@@ -367,6 +435,15 @@ export default function BroadcastPage() {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {broadcastProgress.status === "paused" && broadcastProgress.resumeAt && (
+                                        <div className="flex items-center gap-2 text-sm px-3 py-2 bg-muted/50 rounded-lg">
+                                            <PauseCircle className="h-3.5 w-3.5 text-amber-500" />
+                                            <span className="text-muted-foreground">
+                                                {t("pausedUntil", { time: new Date(broadcastProgress.resumeAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })}
+                                            </span>
+                                        </div>
+                                    )}
 
                                     {broadcastProgress.status === "running" && broadcastProgress.current && (
                                         <div className="flex items-center gap-2 text-sm px-3 py-2 bg-muted/50 rounded-lg">

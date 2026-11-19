@@ -21,6 +21,11 @@ postando texto, imagem e link nos grupos do evento, chamado só pelo painel (ser
 - **Grupos sempre atualizados:** grupo em que o chip entra depois de conectado é gravado na hora
   (`groups.upsert` e `group-participants.update`); grupos de que o chip saiu são apagados; e
   `GET /api/groups/{id}?refresh=1` busca a lista no WhatsApp antes de responder.
+- **Transmissão em blocos:** opção "Pausar entre blocos de envio" na página Transmissão (enviar por X
+  min, pausar Y min, repetir até acabar a lista; 1–1440 min) e no `POST /api/messages/{id}/broadcast`
+  com `pauseAfterMinutes` + `pauseMinutes`. Intervalo entre mensagens vai até 60 s. A cada envio o
+  socket é buscado de novo e, se a sessão caiu, espera até 2 min pela reconexão. Limite: a fila roda na
+  memória do servidor — um deploy/restart no meio interrompe a transmissão (fica "running"/"paused" no histórico).
 - **Exportar participantes dos grupos:** botão "Exportar participantes" na página Grupos (todos, os
   marcados ou os do filtro) e `GET /api/groups/{id}/export?jids=a@g.us,b@g.us&format=csv|json`.
   CSV com `grupo;grupo_jid;telefone;nome;admin;id_whatsapp`, uma linha por pessoa por grupo.

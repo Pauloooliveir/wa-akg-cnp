@@ -383,7 +383,15 @@
     "errorSending": "Erro ao enviar transmissão",
     "historyPermanent": "Histórico de transmissões salvas permanentemente.",
     "noHistoryShort": "Nenhuma transmissão ainda.",
-    "delayAntarPesan": "Atraso entre mensagens (+ intervalo aleatório)."
+    "delayAntarPesan": "Atraso entre mensagens (+ intervalo aleatório).",
+    "pauseToggle": "Pausar entre blocos de envio",
+    "pauseAfterLabel": "Enviar por (minutos)",
+    "pauseForLabel": "Pausar por (minutos)",
+    "pauseHint": "Envia por {after} min, pausa {pause} min e continua, até acabar a lista.",
+    "pauseInvalid": "Use valores entre 1 e 1440 minutos.",
+    "estimate": "Tempo estimado: ~{duration}",
+    "broadcastPaused": "Transmissão em pausa",
+    "pausedUntil": "Em pausa — volta a enviar às {time}"
   },
   "interactive": {
     "title": "Testador Interativo",
