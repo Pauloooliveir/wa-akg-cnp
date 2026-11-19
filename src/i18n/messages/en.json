@@ -506,7 +506,13 @@
     "subjectLabel": "Group Subject",
     "subjectPlaceholder": "e.g. Project Discussion",
     "noGroupsMatching": "No groups found matching criteria.",
-    "noSessionSelected": "No session selected."
+    "noSessionSelected": "No session selected.",
+    "exportAll": "Export participants",
+    "exportSelected": "Export {count, plural, one {# group} other {# groups}}",
+    "exporting": "Exporting…",
+    "exportDone": "{rows} participants from {groups} groups exported ({missing} without visible phone)",
+    "exportFailed": "Could not export participants",
+    "selectAllVisible": "Select the {count} groups listed"
   },
   "labels": {
     "title": "Labels",

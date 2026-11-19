@@ -21,6 +21,12 @@ postando texto, imagem e link nos grupos do evento, chamado só pelo painel (ser
 - **Grupos sempre atualizados:** grupo em que o chip entra depois de conectado é gravado na hora
   (`groups.upsert` e `group-participants.update`); grupos de que o chip saiu são apagados; e
   `GET /api/groups/{id}?refresh=1` busca a lista no WhatsApp antes de responder.
+- **Exportar participantes dos grupos:** botão "Exportar participantes" na página Grupos (todos, os
+  marcados ou os do filtro) e `GET /api/groups/{id}/export?jids=a@g.us,b@g.us&format=csv|json`.
+  CSV com `grupo;grupo_jid;telefone;nome;admin;id_whatsapp`, uma linha por pessoa por grupo.
+  Com a sessão conectada, atualiza os participantes no WhatsApp antes. Quem o WhatsApp mostra só
+  como `…@lid` tem o número buscado no mapa LID→número da sessão e nos contatos; sem isso, sai sem
+  telefone (o total aparece no aviso e no cabeçalho `X-Export-Missing-Phone`).
 
 ## Variáveis no Railway
 

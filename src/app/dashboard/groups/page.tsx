@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Users, Plus, RefreshCw } from "lucide-react";
+import { Users, Plus, RefreshCw, Download } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SearchFilter } from "@/components/dashboard/search-filter";
 import { useSession } from "@/components/dashboard/session-provider";
 import { SessionGuard } from "@/components/dashboard/session-guard";
@@ -79,9 +80,64 @@ export default function GroupsPage() {
     };
 
     const filteredGroups = groups.filter(g =>
-        g.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (g.subject || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         g.jid.includes(searchTerm)
     );
+
+    // CNP: exportar participantes (marcados; sem marcação, os grupos visíveis no filtro)
+    // a marcação vale só para a sessão em que foi feita (trocou de sessão, começa vazia)
+    const [marked, setMarked] = useState<{ session: string | null; jids: Set<string> }>({ session: null, jids: new Set() });
+    const [exporting, setExporting] = useState(false);
+    const selected = marked.session === sessionId ? marked.jids : new Set<string>();
+    const updateSelected = (fn: (next: Set<string>) => void) => {
+        const next = new Set(selected);
+        fn(next);
+        setMarked({ session: sessionId, jids: next });
+    };
+
+    const toggle = (jid: string) =>
+        updateSelected((next) => {
+            if (next.has(jid)) next.delete(jid);
+            else next.add(jid);
+        });
+    const allVisibleSelected = filteredGroups.length > 0 && filteredGroups.every((g) => selected.has(g.jid));
+    const toggleAllVisible = () =>
+        updateSelected((next) => {
+            filteredGroups.forEach((g) => (allVisibleSelected ? next.delete(g.jid) : next.add(g.jid)));
+        });
+
+    const exportParticipants = async () => {
+        if (!sessionId) return;
+        const jids = selected.size ? [...selected] : searchTerm ? filteredGroups.map((g) => g.jid) : [];
+        setExporting(true);
+        try {
+            const params = new URLSearchParams();
+            if (jids.length) params.set("jids", jids.join(","));
+            const res = await fetch(`/api/groups/${sessionId}/export?${params}`);
+            if (!res.ok) {
+                toast.error(t("exportFailed"));
+                return;
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `participantes-grupos-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast.success(
+                t("exportDone", {
+                    rows: Number(res.headers.get("X-Export-Rows") || 0),
+                    groups: Number(res.headers.get("X-Export-Groups") || 0),
+                    missing: Number(res.headers.get("X-Export-Missing-Phone") || 0),
+                })
+            );
+        } catch (error) {
+            toast.error(t("exportFailed"));
+        } finally {
+            setExporting(false);
+        }
+    };
 
     return (
         <SessionGuard>
@@ -99,6 +155,16 @@ export default function GroupsPage() {
                         <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => sessionId && fetchGroups(sessionId)} disabled={loading || !sessionId}>
                             <RefreshCw className={`h-4 w-4 mr-1 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
                             {t("refresh")}
+                        </Button>
+                        <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={exportParticipants} disabled={exporting || !sessionId || filteredGroups.length === 0}>
+                            <Download className={`h-4 w-4 mr-1 sm:mr-2 ${exporting ? 'animate-pulse' : ''}`} />
+                            {exporting
+                                ? t("exporting")
+                                : selected.size
+                                    ? t("exportSelected", { count: selected.size })
+                                    : searchTerm
+                                        ? t("exportSelected", { count: filteredGroups.length })
+                                        : t("exportAll")}
                         </Button>
                         <Button size="sm" className="flex-1 sm:flex-none" onClick={() => setIsCreateOpen(true)} disabled={!sessionId}>
                             <Plus className="h-4 w-4 mr-1 sm:mr-2" /> {t("create")}
@@ -138,17 +204,24 @@ export default function GroupsPage() {
                         {sessionId ? t("noGroupsMatching") : t("noSessionSelected")}
                     </div>
                 ) : (
+                    <>
+                    <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer w-fit">
+                        <Checkbox checked={allVisibleSelected} onCheckedChange={toggleAllVisible} />
+                        {t("selectAllVisible", { count: filteredGroups.length })}
+                    </label>
                     <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                         {filteredGroups.map(group => (
-                            <div key={group.id} className="bg-white p-4 rounded-lg shadow border flex justify-between items-start">
-                                <div>
+                            <label key={group.id} className="bg-white p-4 rounded-lg shadow border flex gap-3 items-start cursor-pointer">
+                                <Checkbox className="mt-1" checked={selected.has(group.jid)} onCheckedChange={() => toggle(group.jid)} aria-label={group.subject} />
+                                <div className="min-w-0">
                                     <h3 className="font-bold text-lg">{group.subject}</h3>
-                                    <div className="text-xs text-muted-foreground mt-1">{group.jid}</div>
+                                    <div className="text-xs text-muted-foreground mt-1 break-all">{group.jid}</div>
                                     <div className="text-xs text-slate-500 mt-1">{t("participantsCount", { count: group.participants?.length || 0 })}</div>
                                 </div>
-                            </div>
+                            </label>
                         ))}
                     </div>
+                    </>
                 )}
             </div>
         </SessionGuard>

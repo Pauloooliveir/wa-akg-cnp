@@ -506,7 +506,13 @@
     "subjectLabel": "Nama Grup",
     "subjectPlaceholder": "Contoh: Diskusi Proyek",
     "noGroupsMatching": "Tidak ada grup yang sesuai kriteria.",
-    "noSessionSelected": "Tidak ada sesi yang dipilih."
+    "noSessionSelected": "Tidak ada sesi yang dipilih.",
+    "exportAll": "Ekspor peserta",
+    "exportSelected": "Ekspor {count} grup",
+    "exporting": "Mengekspor…",
+    "exportDone": "{rows} peserta dari {groups} grup diekspor ({missing} tanpa nomor terlihat)",
+    "exportFailed": "Gagal mengekspor peserta",
+    "selectAllVisible": "Pilih {count} grup yang tampil"
   },
   "labels": {
     "title": "Label",

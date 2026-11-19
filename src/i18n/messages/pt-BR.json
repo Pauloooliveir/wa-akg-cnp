@@ -506,7 +506,13 @@
     "subjectLabel": "Nome do Grupo",
     "subjectPlaceholder": "ex: Discussão de Projetos",
     "noGroupsMatching": "Nenhum grupo encontrado com os critérios.",
-    "noSessionSelected": "Nenhuma sessão selecionada."
+    "noSessionSelected": "Nenhuma sessão selecionada.",
+    "exportAll": "Exportar participantes",
+    "exportSelected": "Exportar {count, plural, one {# grupo} other {# grupos}}",
+    "exporting": "Exportando…",
+    "exportDone": "{rows} participantes de {groups} grupos exportados ({missing} sem telefone visível)",
+    "exportFailed": "Não foi possível exportar os participantes",
+    "selectAllVisible": "Selecionar os {count} grupos da lista"
   },
   "labels": {
     "title": "Etiquetas",
